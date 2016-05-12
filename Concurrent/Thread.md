@@ -138,5 +138,111 @@ public class JoinTest {
 
 ```
 
+## Interrupt
+
+```
+/**
+ * @ClassName: InterruptTest
+ * @Description: interrupt，顾名思义，即中断的意思。
+ * 单独调用interrupt方法可以使得处于阻塞状态的线程抛出一个异常，也就说，它可以用来中断一个正处于阻塞状态的线程；
+ * 另外，通过interrupt方法和isInterrupted()方法来停止正在运行的线程。
+ * 
+ *　以下是关系到线程属性的几个方法：
+
+ *　1）getId
+ *　用来得到线程ID
+
+ *　2）getName和setName
+ *　用来得到或者设置线程名称。
+
+ *　3）getPriority和setPriority
+ *　用来获取和设置线程优先级。
+
+ *　4）setDaemon和isDaemon
+ *　用来设置线程是否成为守护线程和判断线程是否是守护线程。
+
+ *　守护线程和用户线程的区别在于：守护线程依赖于创建它的线程，而用户线程则不依赖。举个简单的例子：如果在main线程中创建了一个守护线程，当main方法运行完毕之后，守护线程也会随着消亡。而用户线程则不会，用户线程会一直运行直到其运行完毕。在JVM中，像垃圾收集器线程就是守护线程。
+
+ *　Thread类有一个比较常用的静态方法currentThread()用来获取当前线程。
+ * 
+ * @author ruihongsun
+ * @date 2016年5月12日 下午5:51:18
+ */
+public class InterruptTest {
+	
+	public static void main(String[] args) {
+		// 中断阻塞状态的线程
+		interruptBlocked();
+		
+		// 中断 非阻塞 状态的线程
+		long currentTimeMillis1 = System.currentTimeMillis();
+		interruptUnblock();
+		long currentTimeMillis2 = System.currentTimeMillis();
+		System.out.println(currentTimeMillis2 - currentTimeMillis1);
+	}
+	
+	/**
+	 * 用来中断一个正处于 非阻塞状态 的线程
+	 * 
+	 * 所以说直接调用interrupt方法不能中断正在运行中的线程。
+	 */
+	private static void interruptUnblock() {
+		System.out.println("Integer中的最大值" + Integer.MAX_VALUE);
+		UnBlockThread unBlockThread = new InterruptTest().new UnBlockThread();
+		unBlockThread.start();
+		try {
+			Thread.sleep(2000);
+		} catch (Exception e) {
+			
+		}
+		UnBlockThread.interrupted();
+	}
+
+	/**
+	 * 用来中断一个正处于阻塞状态的线程
+	 */
+	private static void interruptBlocked() {
+		InterruptTest interruptTest = new InterruptTest();
+		MyThread myThread = interruptTest.new MyThread();
+		myThread.start();
+		try {
+			Thread.sleep(2000);
+		} catch (Exception e) {
+			// TODO: handle exception
+		}
+		myThread.interrupt();
+	}
+
+	class MyThread extends Thread {
+		@Override
+		public void run() {
+			super.run();
+			try {
+				System.out.println("进入睡眠状态");
+                Thread.sleep(10000);
+                System.out.println("睡眠完毕");
+			} catch (InterruptedException e) {
+				System.out.println("得到中断的线程！");
+			}
+			System.out.println("run方法结束");
+		}
+	}
+	
+	class UnBlockThread extends Thread {
+		@Override
+		public void run() {
+			super.run();
+			int i = 0;
+			while (i < Integer.MAX_VALUE && this.isInterrupted()) {
+				System.out.println(i + "while 循环");
+				i++;
+			}
+		}
+	}
+
+}
+
+```
+
 
 
