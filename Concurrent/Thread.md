@@ -87,7 +87,56 @@ It may also be useful when designing concurrency control constructs such as the 
  {@link java.util.concurrent.locks} package.
  
 
+## Join 
 
+```
+/**
+ * @ClassName: JoinTest
+ * @Description:
+ * @author ruihongsun
+ * @date 2016年5月12日 下午5:22:30 
+ */
+public class JoinTest {
+
+	public static void main(String[] args) {
+		System.out.println("进入线程：" + Thread.currentThread().getName());
+		JoinTest joinTest = new JoinTest();
+		MyThread myThread = joinTest.new MyThread();
+		myThread.start();
+		try {
+			System.out.println("join使main等待：" + Thread.currentThread().getName());
+			
+			//　可以看出，当调用thread1.join()方法后，main线程会进入等待，然后等待thread1执行完之后再继续执行。
+			//  实际上调用join方法是调用了Object的wait方法，这个可以通过查看源码得知：
+			//----------------------
+			myThread.join();
+			//----------------------
+			
+			System.out.println("线程" + Thread.currentThread().getName() + "继续执行");
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	class MyThread extends Thread {
+		@Override
+		public void run() {
+			super.run();
+			System.out.println("进入线程内部：" + Thread.currentThread().getName());
+			try {
+				//----------------------
+				Thread.sleep(5000);
+				//----------------------
+			} catch (Exception e) {
+				// TODO: handle exception
+			}
+			System.out.println("执行完毕：" + Thread.currentThread().getName());
+		}
+	}
+	
+}
+
+```
 
 
 
