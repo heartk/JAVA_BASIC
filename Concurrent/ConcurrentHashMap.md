@@ -266,87 +266,64 @@ public V get(Object key) {
 ###　　　ConcurrentHashMap的size操作
 
 ```
+
+
 在前面的章节中，我们涉及到的操作都是在单个Segment中进行的，但是ConcurrentHashMap有一些操作是在多个Segment中进行，比如size操作，
 ConcurrentHashMap的size操作也采用了一种比较巧的方式，来尽量避免对所有的Segment都加锁。
+
+
+    /**
+     * Returns the number of key-value mappings in this map.  If the
+     * map contains more than <tt>Integer.MAX_VALUE</tt> elements, returns
+     * <tt>Integer.MAX_VALUE</tt>.
+     *
+     * @return the number of key-value mappings in this map
+     */
+    public int size() {
+        // Try a few times to get accurate count. On failure due to
+        // continuous async changes in table, resort to locking.
+        final Segment<K,V>[] segments = this.segments;
+        int size;
+        boolean overflow; // true if size overflows 32 bits
+        long sum;         // sum of modCounts
+        long last = 0L;   // previous sum
+        int retries = -1; // first iteration isn't retry
+        try {
+            for (;;) {
+                if (retries++ == RETRIES_BEFORE_LOCK) {
+                    for (int j = 0; j < segments.length; ++j)
+                        ensureSegment(j).lock(); // force creation
+                }
+                sum = 0L;
+                size = 0;
+                overflow = false;
+                for (int j = 0; j < segments.length; ++j) {
+                    Segment<K,V> seg = segmentAt(segments, j);
+                    if (seg != null) {
+                        sum += seg.modCount;
+                        int c = seg.count;
+                        if (c < 0 || (size += c) < 0)
+                            overflow = true;
+                    }
+                }
+                if (sum == last)
+                    break;
+                last = sum;
+            }
+        } finally {
+            if (retries > RETRIES_BEFORE_LOCK) {
+                for (int j = 0; j < segments.length; ++j)
+                    segmentAt(segments, j).unlock();
+            }
+        }
+        return overflow ? Integer.MAX_VALUE : size;
+    }
+
 
 　　前面我们提到了一个Segment中的有一个modCount变量，代表的是对Segment中元素的数量造成影响的操作的次数，
 　　这个值只增不减，size操作就是遍历了两次Segment，每次记录Segment的modCount值，然后将两次的modCount进行比较，
 　　如果相同，则表示期间没有发生过写入操作，就将原先遍历的结果返回，如果不相同，则把这个过程再重复做一次，
 　　如果再不相同，则就需要将所有的Segment都锁住，然后一个一个遍历了，具体的实现大家可以看ConcurrentHashMap的源码，这里就不贴了。
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
