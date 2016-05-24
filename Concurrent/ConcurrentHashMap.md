@@ -115,7 +115,7 @@ public V get(Object key) {
   看第三行，segmentFor这个函数用于确定操作应该再哪一个segment中进行，几乎对 ConcurrentHashMap 的所有操作都需要
   用到这个函数，我们看一下这个函数的实现：
   
-  ···
+  ```
     public Segment<K, V> segmentFor(int hash) {
       return segments[(hash >>> segmentShift) & segmentMask];
     }
