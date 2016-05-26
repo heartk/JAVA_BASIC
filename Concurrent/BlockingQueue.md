@@ -1,6 +1,6 @@
 
 　　
-## 阻塞队列  （Blocked Queue）    
+## 阻塞队列  （BlockingQueue）    
     
 在前面几篇文章中，我们讨论了同步容器（Hashtable 、 Vector）,也讨论了并发容器（ConcurrentHashMap、CopyOnWriteArrayList),
 这些工具都为我们编写多线程程序提供了很大的方便。
@@ -192,7 +192,209 @@ private E extract() {
 只不过它把这些工作一起集成到了阻塞队列中实现。
 
 
-    
+ ### 示例 和 使用 场景
+
+```
+package javabasic.collection.concurrent;
+
+import java.util.PriorityQueue;
+import java.util.Queue;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+
+/**
+ * @ClassName: BlcokedQueueTest
+ * @Description:
+ * 
+ * 一、先使用Object.wait()和Object.notify()、非阻塞队列实现生产者-消费者模式
+ * 
+  * 　有没有发现，使用阻塞队列代码要简单得多，不需要再单独考虑同步和线程间通信的问题。
+  * 
+ *　在并发编程中，一般推荐使用阻塞队列，这样实现可以尽量地避免程序出现意外的错误。
+ *
+ *　阻塞队列使用最经典的场景就是  socket客户端数据  的读取和解析，读取数据的线程不断将数据放入队列，
+ *    然后解析线程不断从队列取数据解析。还有其他类似的场景，只要符合生产者-消费者模型的都可以使用阻塞队列。
+ * 
+ * @author ruihongsun
+ * @date 2016年5月26日 上午9:50:48 
+ */
+public class BlcokedQueueTest {
+	
+	public static void main(String[] args) {
+		
+		/**
+		 * 使用 Object.wait()和Object.notify()、非阻塞队列实现生产者-消费者模式：
+		 */
+//		producerConsumerWaitNotify();
+
+		/**
+		 * 使用阻塞队列实现的生产者-消费者模式
+		 */
+		producerConsumerBlockedQueue();
+		
+	}
+	
+	/**
+	 * 2. 使用阻塞队列实现的生产者-消费者模式
+	 */
+	private static void producerConsumerBlockedQueue() {
+		int queueSize = 15;
+		BlockingQueue<Integer> blockingQueue = new ArrayBlockingQueue<Integer>(queueSize);
+		
+		ProducerBlockedQueue producerBlockedQueue = new ProducerBlockedQueue(blockingQueue, queueSize);
+		ConsumerBlockedQueue consumerBlockedQueue = new ConsumerBlockedQueue(blockingQueue);
+		
+		producerBlockedQueue.start();
+		consumerBlockedQueue.start();
+	}
+
+	/**
+	 * 1. 使用 Object.wait()和Object.notify()、非阻塞队列实现生产者-消费者模式
+	 */
+	private static void producerConsumerWaitNotify() {
+		int queueSize = 10;
+		Queue<Integer> queue = new PriorityQueue<Integer>(queueSize);
+		
+		ProducerWaitNotify producerWaitNotify = new ProducerWaitNotify(queue, queueSize);
+		ConsumerWaitNotify consumerWaitNotify = new ConsumerWaitNotify(queue);
+		
+		producerWaitNotify.start();
+		consumerWaitNotify.start();
+	}
+
+	
+}
+
+class ConsumerWaitNotify extends Thread {
+
+	Queue<Integer> queue = null;
+
+	public ConsumerWaitNotify(Queue<Integer> queue) {
+		this.queue = queue;
+	}
+
+	@Override
+	public void run() {
+		consume();
+	}
+
+	private void consume() {
+		while (true) {
+			synchronized (queue) {
+				while (queue.size() == 0) {
+					try {
+						System.out.println("队列空，等待数据");
+						queue.wait();
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+						queue.notify();
+					}
+				}
+				queue.poll(); // 每次移走队首元素
+				queue.notify();
+				System.out.println("从队列取走一个元素，队列剩余" + queue.size() + "个元素");
+			}
+		}
+	}
+}
+
+/* =============================    wait and notify END  ========================================  */
+
+class ProducerWaitNotify extends Thread {
+	
+	private Queue<Integer> queue = null;
+	private int queueSize = 0;
+	
+	public ProducerWaitNotify(Queue<Integer> queue, int queueSize) {
+		this.queue = queue;
+		this.queueSize = queueSize;
+	}
+	
+	@Override
+	public void run() {
+		super.run();
+		producer();
+	}
+
+	private void producer() {
+		while (true) {
+			synchronized (queue) {
+				while (queue.size() == queueSize) {
+					try {
+						System.out.println("队列已经满了，等待有空余空间");
+						queue.wait();
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+						queue.notify();
+					}
+				}
+				queue.offer(1);
+				queue.notify();
+				System.out.println("向队列取中插入一个元素，队列剩余空间："+(queueSize-queue.size()));
+			}
+		}
+	}
+	
+}
+
+class ConsumerBlockedQueue extends Thread {
+	
+	BlockingQueue<Integer> blockingQueue = null;
+	
+	public ConsumerBlockedQueue(BlockingQueue<Integer> blockingQueue) {
+		this.blockingQueue = blockingQueue;
+	}
+	
+	@Override
+	public void run() {
+		super.run();
+		consumer();
+	}
+
+	private void consumer() {
+		while (true) {
+			try {
+				blockingQueue.take();
+				System.out.println("从队列取走一个元素，队列剩余：" + blockingQueue.size() + "个元素!");
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+}
+
+class ProducerBlockedQueue extends Thread {
+	
+	private int queueSize = 0;
+	BlockingQueue<Integer> blockingQueue = null;
+	
+	public ProducerBlockedQueue(BlockingQueue<Integer> blockingQueue, int queueSize) {
+		this.blockingQueue = blockingQueue;
+		this.queueSize = queueSize;
+	}
+	
+	@Override
+	public void run() {
+		super.run();
+		producer();
+	}
+
+	private void producer() {
+		while (true) {
+			try {
+				blockingQueue.put(1);
+				System.out.println("向队列中的元素插入一个元素，队列剩余空间 ：" + (queueSize - blockingQueue.size()) + "个元素");
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+}
+
+```
+   
     
     
     
