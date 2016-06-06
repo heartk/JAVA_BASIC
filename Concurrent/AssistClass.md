@@ -142,8 +142,195 @@ public int await(long timeout, TimeUnit unit) throws InterruptedException,Broken
 
 　　假若有若干个线程都要进行写数据操作，并且只有所有线程都完成写数据操作之后，
 　　这些线程才能继续做后面的事情，此时就可以利用CyclicBarrier了：
+```
+package javabasic.multiThread.assistclass;
 
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
+/**
+ * @ClassName: CyclicBarrierTest
+ * @Description:
+ * @author ruihongsun
+ * @date 2016年6月6日 下午1:35:30 
+ */
+public class CyclicBarrierTest {
+
+	public static void main(String[] args) {
+		
+		executeWriterAwaitTime();
+		
+//		executeWriterWithRunnable();
+		
+//		executeWriter();
+	}
+	
+	private static void executeWriterAwaitTime() {
+		int N = 4;
+		CyclicBarrier barrier = new CyclicBarrier(N);
+
+		for (int i = 0; i < N; i++) {
+			if (i < N - 1)
+				new Writer2(barrier).start();
+			else {
+				try {
+					Thread.sleep(5000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				new Writer2(barrier).start();
+			}
+		}
+	}
+	
+	private static void executeWriterWithRunnable() {
+		int N = 4;
+		/**
+		 * 当四个线程都到达barrier状态后，会从四个线程中选择一个线程去执行Runnable。
+		 */
+		CyclicBarrier cyclicBarrier = new CyclicBarrier(N, new Runnable() {
+			
+			@Override
+			public void run() {
+				System.out.println("当前线程" + Thread.currentThread().getName());
+			}
+		});
+		for (int i = 0; i < N; i++) {
+			new Writer(cyclicBarrier).start();
+		}
+	}
+	
+	private static void executeWriter() {
+		int N = 4;
+		CyclicBarrier cyclicBarrier = new CyclicBarrier(N);
+		for (int i = 0; i < N; i++) {
+			new Writer(cyclicBarrier).start();
+		}
+	}
+}
+
+class Writer2 extends Thread {
+	private CyclicBarrier cyclicBarrier;
+	
+	public Writer2(CyclicBarrier cyclicBarrier) {
+		this.cyclicBarrier = cyclicBarrier;
+	}
+	
+	@Override
+	public void run() {
+		super.run();
+		System.out.println("线程" + Thread.currentThread().getName() + "正在写入数据");
+		try {
+			Thread.sleep(3000);
+			System.out.println("线程" + Thread.currentThread().getName() + "写入执行完毕，等待其他线程写入完毕");
+			cyclicBarrier.await(2000, TimeUnit.MILLISECONDS);
+		} catch (InterruptedException | BrokenBarrierException | TimeoutException e) {
+			e.printStackTrace();
+		} 
+		System.out.println(Thread.currentThread().getName() + "所有线程写入完毕，继续处理其他任务。。。");
+	}
+	
+}
+
+class Writer extends Thread {
+	
+	private CyclicBarrier cyclicBarrier;
+	
+	public Writer(CyclicBarrier cyclicBarrier) {
+		this.cyclicBarrier = cyclicBarrier;
+	}
+	
+	@Override
+	public void run() {
+		super.run();
+		System.out.println("线程" + Thread.currentThread().getName() + "正在写入数据...");
+		try {
+			Thread.sleep(5000); // 以睡眠来模拟写入数据操作
+			System.out.println("线程" + Thread.currentThread().getName() + "写入数据完毕，等待其他线程写入完毕");
+			cyclicBarrier.await();
+		} catch (InterruptedException | BrokenBarrierException e) {
+			e.printStackTrace();
+		}
+		System.out.println("所有线程写入完毕，继续处理其他任务...");
+	}
+	
+}
+
+```
+上面的代码在main方法的for循环中，故意让最后一个线程启动延迟，
+因为在前面三个线程都达到barrier之后，等待了指定的时间发现第四个线程还没有达到barrier，
+就抛出异常并继续执行后面的任务。
+
+　　另外CyclicBarrier是可以重用的，看下面这个例子：
+```
+package javabasic.multiThread.assistclass;
+
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
+
+/**
+ * @ClassName: CyclicBarrierReuse
+ * @Description:
+ * @author ruihongsun
+ * @date 2016年6月6日 下午4:16:53 
+ */
+public class CyclicBarrierReuseTest {
+
+	public static void main(String[] args) {
+		writeReuse();
+	}
+	
+	private static void writeReuse() {
+		int N = 4;
+        CyclicBarrier barrier  = new CyclicBarrier(N);
+         
+        for(int i=0;i<N;i++) {
+            new WriterReuse(barrier).start();
+        }
+         
+        try {
+            Thread.sleep(25000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+         
+        System.out.println("CyclicBarrier重用");
+         
+        for(int i=0;i<N;i++) {
+            new WriterReuse(barrier).start();
+        }
+	}
+}
+
+class WriterReuse extends Thread {
+	
+    private CyclicBarrier cyclicBarrier;
+    
+    public WriterReuse(CyclicBarrier cyclicBarrier) {
+        this.cyclicBarrier = cyclicBarrier;
+    }
+    
+    @Override
+    public void run() {
+    	super.run();
+    	System.out.println("线程" + Thread.currentThread().getName() + "正在写入数据。。。");
+    	try {
+			Thread.sleep(5000); // 以睡眠来模拟写入数据操作
+			System.out.println("线程" + Thread.currentThread().getName() + "写入数据完毕，等待其它线程写入");
+			cyclicBarrier.await();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		} catch (BrokenBarrierException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} 
+    	System.out.println(Thread.currentThread().getName() + "所有线程写入完毕，继续处理其他任务。。。");
+    }
+}
+
+```
 
 
 
